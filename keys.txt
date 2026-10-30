@@ -1,0 +1,258 @@
+-- ==========================================
+-- SL 白名单验证 | 索尼克背景 + 自动检测名字版
+-- ==========================================
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ⚠️【只改这一行，换成你自己的 Worker 地址】
+local workerUrl = "https://shadowmoon-auth.你的子域.workers.dev"
+local sonicUrl = "https://i.ibb.co/1DgvgqX/image.png"
+
+-- ==========================================
+-- 乐子配置区
+-- ==========================================
+local roasts = {
+    "❌ 卡密错误，建议去问问你妈要零花钱买一个",
+    "❌ 验证失败，你的卡密可能是用脚打的",
+    "❌ 白嫖失败！影月系统已记录你的 Roblox ID",
+    "❌ 次数用完了，要不你对着索尼克许个愿？",
+    "❌ 卡密无效，但你的勇气值得表扬",
+    "❌ 检测到白嫖行为，正在通知你班主任",
+    "❌ 再错就封号（骗你的）",
+}
+local scanSteps = {
+    "🔍 正在扫描 Roblox 账号...",
+    "🔍 检测到 0 个外挂（其实没查）",
+    "🔍 正在读取你的浏览记录...（开玩笑的）",
+    "🔍 扫描完成，你看起来很老实",
+}
+
+-- ==========================================
+-- 验证逻辑：自动检测名字 + 卡密兜底
+-- ==========================================
+local function checkViaWorker(inputText)
+    -- 如果输入为空，直接用玩家名字
+    local keyToUse = inputText
+    if keyToUse == "" then
+        keyToUse = player.Name
+    end
+    
+    -- 同时把 keyToUse 和真实名字传给后端
+    local url = workerUrl .. "/verify?key=" .. HttpService:UrlEncode(keyToUse) .. "&name=" .. HttpService:UrlEncode(player.Name)
+    local ok, res = pcall(function() return game:HttpGet(url) end)
+    if not ok or not res then return nil end
+    local ok2, data = pcall(function() return HttpService:JSONDecode(res) end)
+    if not ok2 then return nil end
+    return data
+end
+
+local function checkAuth(inputText)
+    -- 1. 先按规则验证
+    local w = checkViaWorker(inputText)
+    if w and w.ok and w.token then 
+        return true, "", w.token 
+    end
+    
+    -- 2. 如果失败了，但玩家填了东西，强制用他的名字再查一次
+    if inputText ~= "" then
+        local w2 = checkViaWorker("") 
+        if w2 and w2.ok and w2.token then 
+            return true, "", w2.token 
+        end
+    end
+    
+    -- 3. 彻底失败
+    return false, (w and w.msg) or "卡密错误", nil
+end
+
+-- ==========================================
+-- UI 界面 (复刻你的截图 + 索尼克背景)
+-- ==========================================
+local authGui = Instance.new("ScreenGui", playerGui)
+authGui.IgnoreGuiInset = true
+authGui.Name = "SL_Auth"
+
+local authFrame = Instance.new("Frame", authGui)
+authFrame.Size = UDim2.fromOffset(380, 250)
+authFrame.Position = UDim2.fromScale(0.5, 0.5)
+authFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+authFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+authFrame.BorderSizePixel = 0
+Instance.new("UICorner", authFrame).CornerRadius = UDim.new(0, 16)
+
+-- 索尼克背景图
+local authBg = Instance.new("ImageLabel", authFrame)
+authBg.Size = UDim2.fromScale(1, 1)
+authBg.BackgroundTransparency = 1
+authBg.Image = sonicUrl
+authBg.ScaleType = Enum.ScaleType.Crop
+authBg.ZIndex = 0
+Instance.new("UICorner", authBg).CornerRadius = UDim.new(0, 16)
+
+-- 白色半透明遮罩 (透出索尼克)
+local overlay = Instance.new("Frame", authFrame)
+overlay.Size = UDim2.fromScale(1, 1)
+overlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+overlay.BackgroundTransparency = 0.35 
+overlay.BorderSizePixel = 0
+overlay.ZIndex = 1
+Instance.new("UICorner", overlay).CornerRadius = UDim.new(0, 16)
+
+-- 标题
+local title = Instance.new("TextLabel", authFrame)
+title.Size = UDim2.new(1, -60, 0, 30)
+title.Position = UDim2.fromOffset(20, 20)
+title.Text = "SL 白名单验证"
+title.TextColor3 = Color3.fromRGB(20, 20, 20)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.BackgroundTransparency = 1
+title.ZIndex = 2
+
+-- 右上角关闭按钮
+local closeBtn = Instance.new("TextButton", authFrame)
+closeBtn.Size = UDim2.fromOffset(30, 30)
+closeBtn.Position = UDim2.new(1, -45, 0, 15)
+closeBtn.BackgroundColor3 = Color3.fromRGB(245, 240, 255)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(120, 80, 200)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 14
+closeBtn.ZIndex = 2
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+closeBtn.MouseButton1Click:Connect(function() authGui:Destroy() end)
+
+-- 状态提示语
+local statusLabel = Instance.new("TextLabel", authFrame)
+statusLabel.Size = UDim2.new(1, -40, 0, 40)
+statusLabel.Position = UDim2.fromOffset(20, 60)
+statusLabel.Text = "系统已开启自动检测，直接点击验证即可。" 
+statusLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+statusLabel.Font = Enum.Font.GothamMedium
+statusLabel.TextSize = 14
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.TextWrapped = true
+statusLabel.BackgroundTransparency = 1
+statusLabel.ZIndex = 2
+
+-- 输入框 (不填就直接查名字)
+local input = Instance.new("TextBox", authFrame)
+input.Size = UDim2.new(1, -40, 0, 40)
+input.Position = UDim2.fromOffset(20, 105)
+input.BackgroundColor3 = Color3.fromRGB(245, 240, 255)
+input.PlaceholderText = "输入卡密 (无卡直接点下方按钮)"
+input.Text = ""
+input.TextColor3 = Color3.fromRGB(50, 50, 50)
+input.PlaceholderColor3 = Color3.fromRGB(150, 140, 180)
+input.Font = Enum.Font.Gotham
+input.TextSize = 14
+input.ZIndex = 2
+Instance.new("UICorner", input).CornerRadius = UDim.new(0, 8)
+
+-- 验证按钮
+local btn = Instance.new("TextButton", authFrame)
+btn.Size = UDim2.new(1, -40, 0, 45)
+btn.Position = UDim2.fromOffset(20, 155)
+btn.BackgroundColor3 = Color3.fromRGB(138, 92, 246) 
+btn.Text = "重新验证"
+btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+btn.Font = Enum.Font.GothamBold
+btn.TextSize = 15
+btn.ZIndex = 2
+Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+-- 底部小字
+local footer = Instance.new("TextLabel", authFrame)
+footer.Size = UDim2.new(1, -40, 0, 20)
+footer.Position = UDim2.new(0, 20, 1, -30)
+footer.Text = "验证仅发送脚本编号、当前账号用户名和白名单系统标识。"
+footer.TextColor3 = Color3.fromRGB(120, 120, 120)
+footer.Font = Enum.Font.Gotham
+footer.TextSize = 10
+footer.TextXAlignment = Enum.TextXAlignment.Left
+footer.BackgroundTransparency = 1
+footer.ZIndex = 2
+
+-- ==========================================
+-- 按钮交互逻辑
+-- ==========================================
+local failCount = 0
+local isVerifying = false
+
+btn.MouseButton1Click:Connect(function()
+    if isVerifying then return end
+    isVerifying = true
+    btn.Text = "验证中..."
+    btn.BackgroundTransparency = 0.5
+
+    -- 假扫描
+    for _, s in ipairs(scanSteps) do
+        statusLabel.Text = s
+        statusLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+        task.wait(0.45)
+    end
+
+    statusLabel.Text = "⏳ 正在连接云端..."
+    
+    local ok, msg, token = checkAuth(input.Text)
+
+    if ok and token then
+        statusLabel.Text = "✅ 验证通过，正在加载...（其实已经好了，就想看你等）"
+        statusLabel.TextColor3 = Color3.fromRGB(0, 180, 50)
+        btn.BackgroundColor3 = Color3.fromRGB(0, 200, 50)
+        btn.Text = "注入成功"
+        task.wait(2)
+        authGui:Destroy()
+
+        -- 验证成功！带 token 加载主界面
+        _G.__shadowmoon_token = token
+        local okUi, uiCode = pcall(function()
+            return game:HttpGet(workerUrl .. "/ui?token=" .. HttpService:UrlEncode(token))
+        end)
+        if okUi and uiCode and not string.find(uiCode, "token 无效") then
+            loadstring(uiCode)()
+        else
+            print("UI 拉取失败，token 可能过期")
+        end
+    else
+        -- 随机嘲讽
+        failCount = failCount + 1
+        local reason = (msg ~= "" and msg) or "卡密错误"
+        
+        if reason == "次数已用尽" then
+            statusLabel.Text = "❌ 次数用完了，要不你对着索尼克许个愿？"
+        elseif reason == "网络异常" then
+            statusLabel.Text = "❌ 网络异常，检查下网络再来"
+        else
+            statusLabel.Text = roasts[math.random(#roasts)]
+        end
+        statusLabel.TextColor3 = Color3.fromRGB(200, 50, 50)
+        
+        btn.BackgroundColor3 = Color3.fromRGB(220, 50, 50) 
+        btn.Text = "重新验证"
+
+        -- 失败 3 次弹称号
+        if failCount == 3 then
+            local troll = Instance.new("TextLabel", authFrame)
+            troll.Size = UDim2.new(1, -40, 0, 20)
+            troll.Position = UDim2.fromOffset(20, 105) 
+            troll.Text = "🎉 恭喜你获得『白嫖大师』称号！"
+            troll.TextColor3 = Color3.fromRGB(230, 150, 0)
+            troll.Font = Enum.Font.GothamBold
+            troll.TextSize = 14
+            troll.BackgroundTransparency = 1
+            troll.ZIndex = 3
+            task.wait(3)
+            troll:Destroy()
+        end
+
+        task.wait(1)
+        btn.BackgroundColor3 = Color3.fromRGB(138, 92, 246) 
+        btn.BackgroundTransparency = 0
+        btn.Text = "重新验证"
+        isVerifying = false
+    end
+end)
