@@ -1,5 +1,5 @@
 -- ==========================================
--- 影月系统 | 纯净骨架版 (验证 + UI)
+-- 影月系统 | 终极整合面板 (完整无截断版)
 -- ==========================================
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
@@ -109,7 +109,7 @@ local function LoadHub()
     local MainSec = MainTab:section("信息", true)
     MainSec:Label("欢迎使用影月系统")
     MainSec:Label("作者：端午年")
-    MainSec:Label("主框架已加载，等待添加新模块。")
+    MainSec:Label("所有模块已就绪！")
     
     -- 2. 服务器传送
     local ServerTab = win:Tab("『服务器传送』")
@@ -121,13 +121,19 @@ local function LoadHub()
         game:GetService("TeleportService"):Teleport(286090429, game.Players.LocalPlayer)
     end)
     
-    -- 3. 以后你建好独立文件了，就往这里加按钮：
+    -- ================= 3. 脚本整合 =================
     local ScriptTab = win:Tab("『脚本整合』")
     local ScriptSec = ScriptTab:section("『一键启动』", true)
-    -- ScriptSec:Button("启动 XXX", function()
-    --     loadstring(game:HttpGet("你的文件链接"))()
-    -- end)
     
+    -- 👇 破坏者谜团2
+    ScriptSec:Button("启动 破坏者谜团2", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/yuh5710t/yingyue-vip-24-/main/Puzzle2.lua"))()
+    end)
+
+    -- 👇 造船寻宝 (伊散版)
+    ScriptSec:Button("启动 造船寻宝 (刷金条)", function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/yuh5710t/yingyue-vip-24-/main/zaochuan.lua"))()
+    end)
 end
 
 btn.MouseButton1Click:Connect(function()
